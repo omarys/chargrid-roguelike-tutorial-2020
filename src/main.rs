@@ -1,7 +1,11 @@
-use rgb24::Rgb24;
+use app::App;
+use chargrid_graphical::{Config, Context, Dimensions, FontBytes};
+use coord_2d::Size;
+
+mod app;
+mod game;
 
 fn main() {
-    use chargrid_graphical::{Config, Context, Dimensions, FontBytes};
     const CELL_SIZE_PX: f64 = 24.;
     let context = Context::new(Config {
         font_bytes: FontBytes {
@@ -28,52 +32,4 @@ fn main() {
     let screen_size = Size::new(40, 30);
     let app = App::new(screen_size);
     context.run_app(app);
-}
-
-struct App {
-    data: AppData,
-    view: AppView,
-}
-
-impl App {
-    fn new(screen_size: Size) -> Self {
-        Self {
-            data: AppData::new(screen_size),
-            view: AppView::new()
-        }
-    }
-}
-
-impl chargrid::app::App for App {
-
-    fn on_input(
-        &mut self, 
-        input: chargrid::input::Input,
-    ) -> Option<chargrid::app::ControlFlow> {
-        use chargrid::input::{keys, Input};
-        match input {
-            Input::Keyboard(keys::ETX) | Input::Keyboard(keys::ESCAPE) => {
-                Some(chargrid::app::ControlFlow::Exit)
-            }
-            other => {
-                self.data.handle_input(other);
-                None
-            }
-        }
-    }
-
-    fn on_frame<F, C>(
-        &mut self,
-        _since_last_frame: chargrid::app::Duration,
-        view_context: chargrid::app::ViewContext<C>,
-        frame: &mut F,
-    ) -> Option<chargrid::app::ControlFlow>
-    where
-        F: chargrid::app::Frame,
-        C: chargrid::app::ColModify,
-    {
-        use chargrid::render::View;
-        self.view.view(&self.data, view_context, frame);
-        None
-    }
 }
