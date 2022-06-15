@@ -1,4 +1,4 @@
-use crate::game::GameState;
+use crate::game::{GameState, Layer, Tile};
 use chargrid::{
     app::{App as ChargridApp, ControlFlow},
     input::{keys, Input, KeyboardInput},
@@ -48,10 +48,28 @@ impl<'a> View<&'a AppData> for AppView {
         context: ViewContext<C>,
         frame: &mut F,
     ) {
-        let view_cell = ViewCell::new()
-            .with_character('@')
-            .with_foreground(Rgb24::new_grey(255));
-        frame.set_cell_relative(data.game_state.player_coord(), 0, view_cell, context);
+        for entity_to_render in data.game_state.entities_to_render() {
+            let view_cell = match entity_to_render.tile {
+                Tile::Player => ViewCell::new()
+                    .with_character('@')
+                    .with_foreground(Rgb24::new_grey(255)),
+                Tile::Floor => ViewCell::new()
+                    .with_character('.')
+                    .with_foreground(Rgb24::new_grey(63))
+                    .with_background(Rgb24::new(0, 0, 63)),
+                Tile::Wall => ViewCell::new()
+                    .with_character('#')
+                    .with_foreground(Rgb24::new(0, 63, 63))
+                    .with_background(Rgb24::new(63, 127, 127)),
+            };
+            let depth = match entity_to_render.location.layer {
+                None => -1,
+                Some(Layer::Floor) => 0,
+                Some(Layer::Feature) => 1,
+                Some(Layer::Character) => 2,
+            };
+            frame.set_cell_relative(entity_to_render.location.coord, depth, view_cell, context);
+        }
     }
 }
 
@@ -69,7 +87,7 @@ impl App {
     }
 }
 
- impl ChargridApp for App {
+impl ChargridApp for App {
     fn on_input(&mut self, input: Input) -> Option<ControlFlow> {
         match input {
             Input::Keyboard(keys::ETX) | Input::Keyboard(keys::ESCAPE) => Some(ControlFlow::Exit),
@@ -81,7 +99,7 @@ impl App {
     }
     fn on_frame<F, C>(
         &mut self,
-        since_last_frame: Duration,
+        _since_last_frame: Duration,
         view_context: ViewContext<C>,
         frame: &mut F,
     ) -> Option<ControlFlow>
