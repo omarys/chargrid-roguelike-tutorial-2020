@@ -1,6 +1,9 @@
+use crate::terrain::{self, TerrainTile};
 use coord_2d::{Coord, Size};
 use direction::CardinalDirection;
 use entity_table::{Entity, EntityAllocator};
+use rand::{Rng, SeedableRng};
+use rand_isaac::Isaac64Rng;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Tile {
@@ -83,14 +86,21 @@ impl GameState {
             .tile
             .insert(self.player_entity, Tile::Player);
     }
-    fn populate(&mut self, player_coord: Coord) {
-        self.spawn_player(player_coord);
-        for coord in self.screen_size.coord_iter_row_major() {
-            self.spawn_floor(coord);
+    fn populate<R: Rng>(&mut self, rng: &mut R) {
+        let terrain = terrain::generate_dungeon(self.screen_size, rng);
+        for (coord, &terrain_tile) in terrain.enumerate() {
+            match terrain_tile {
+                TerrainTile::Player => {
+                    self.spawn_floor(coord);
+                    self.spawn_player(coord);
+                }
+                TerrainTile::Floor => self.spawn_floor(coord),
+                TerrainTile::Wall => {
+                    self.spawn_floor(coord);
+                    self.spawn_wall(coord);
+                }
+            }
         }
-        self.spawn_wall(player_coord + Coord::new(-1, 2));
-        self.spawn_wall(player_coord + Coord::new(0, 2));
-        self.spawn_wall(player_coord + Coord::new(1, 2));
     }
     pub fn new(screen_size: Size) -> Self {
         let mut entity_allocator = EntityAllocator::default();
@@ -104,7 +114,8 @@ impl GameState {
             spatial_table,
             player_entity,
         };
-        game_state.populate(screen_size.to_coord().unwrap() / 2);
+        let mut rng = Isaac64Rng::from_entropy();
+        game_state.populate(&mut rng);
         game_state
     }
     pub fn maybe_move_player(&mut self, direction: CardinalDirection) {
